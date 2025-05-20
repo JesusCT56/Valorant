@@ -1,0 +1,145 @@
+import os
+import sys
+import time
+import random
+import string
+import ctypes
+import mss
+import numpy as np
+import cv2
+import pyautogui
+import win32api
+import win32con
+import win32gui
+import psutil
+
+if sys.platform == "win32":
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.GetStdHandle(-11)
+    mode = ctypes.c_ulong()
+    kernel32.GetConsoleMode(handle, ctypes.byref(mode))
+    mode.value |= 0x0004  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    kernel32.SetConsoleMode(handle, mode)
+
+class ConsoleColors:
+    RESET = '\033[0m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+
+DISCORD_INVITE_LINK = f"{ConsoleColors.BLUE}.gg/emuvgc{ConsoleColors.RESET}"
+SCRIPT_VERSION = f"{ConsoleColors.RED}V1.1{ConsoleColors.RESET}"
+VALORANT_EXECUTABLE_NAME = "VALORANT-Win64-Shipping.exe"
+
+def is_process_running(process_name):
+    for proc in psutil.process_iter(['name']):
+        if proc.info['name'] == process_name:
+            return True
+    return False
+
+def set_random_console_title():
+    random_title = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+    ctypes.windll.kernel32.SetConsoleTitleW(random_title)
+
+def is_valorant_purple(pixel_hsv):
+    h, s, v = pixel_hsv
+    return (120 <= h <= 150) and (80 <= s <= 255) and (80 <= v <= 255)
+
+def get_center_screen_region(size=30):
+    screen_width = win32api.GetSystemMetrics(0)
+    screen_height = win32api.GetSystemMetrics(1)
+    center_x = screen_width // 2
+    center_y = screen_height // 2
+    left = center_x - size // 2
+    top = center_y - size // 2
+    return {"left": left, "top": top, "width": size, "height": size}
+
+def perform_click():
+    pyautogui.click()
+
+def move_mouse_relative(delta_y=3):
+    pyautogui.move(0, delta_y)
+
+def display_loading_sequence():
+    script_title = f"{ConsoleColors.CYAN}Jinx Triggerbot{ConsoleColors.RESET} - {ConsoleColors.GREEN}Undetected{ConsoleColors.RESET}"
+    discord_line = f"{ConsoleColors.BLUE}.gg/emuvgc{ConsoleColors.RESET}"
+    waiting_message = f"{ConsoleColors.YELLOW}- Waiting For Valorant -{ConsoleColors.RESET}"
+
+    print(f"{script_title}\n{discord_line}\n")
+
+    while not is_process_running(VALORANT_EXECUTABLE_NAME):
+        print(f"{waiting_message}", end='\r')
+        time.sleep(1)
+
+    print(f"{ConsoleColors.GREEN}[+]{ConsoleColors.RESET} Valorant process found.")
+    print(f"{ConsoleColors.YELLOW}[+]{ConsoleColors.RESET} Searching for game window...")
+    time.sleep(random.uniform(0.5, 1.0))
+
+    hwnd = hex(win32gui.GetForegroundWindow())
+    print(f"{ConsoleColors.YELLOW}[+]{ConsoleColors.RESET} Game window found with HWND {ConsoleColors.CYAN}{hwnd}{ConsoleColors.RESET}")
+    time.sleep(random.uniform(0.5, 1.0))
+
+    process_id = os.getpid()
+    print(f"{ConsoleColors.YELLOW}[+]{ConsoleColors.RESET} Process ID resolved to {ConsoleColors.CYAN}{process_id}{ConsoleColors.RESET}")
+    time.sleep(random.uniform(0.5, 1.0))
+
+    print(f"{ConsoleColors.YELLOW}[+]{ConsoleColors.RESET} Connecting to process...")
+    time.sleep(random.uniform(0.5, 1.0))
+    print(f"{ConsoleColors.YELLOW}[+]{ConsoleColors.RESET} Drawing...")
+    time.sleep(random.uniform(0.5, 1.0))
+    print(f"{ConsoleColors.YELLOW}[!] Creating screen...{ConsoleColors.RESET}")
+    time.sleep(random.uniform(0.5, 1.0))
+    print(f"{ConsoleColors.YELLOW}[+]{ConsoleColors.RESET} Drawing Completed...{ConsoleColors.GREEN} Ready.{ConsoleColors.RESET}")
+    print(f"\n{SCRIPT_VERSION}")
+
+def triggerbot_loop():
+    if not is_process_running(VALORANT_EXECUTABLE_NAME):
+        print(f"{ConsoleColors.RED}[ERROR]{ConsoleColors.RESET} Valorant is not running. Exiting triggerbot loop.")
+        return
+
+    with mss.mss() as sct:
+        print(f"{ConsoleColors.BLUE}[*]{ConsoleColors.RESET} Triggerbot is running. Close the console to stop.")
+
+        while True:
+            set_random_console_title()
+            right_mouse_pressed = win32api.GetAsyncKeyState(win32con.VK_RBUTTON) < 0
+
+            if right_mouse_pressed:
+                box_size = 40
+                fire_delay = 0.3
+                recoil_comp = 2
+            else:
+                box_size = 30
+                fire_delay = 0.15
+                recoil_comp = 3
+
+            monitor = get_center_screen_region(box_size)
+            img = np.array(sct.grab(monitor))[:, :, :3]
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+            center_x, center_y = box_size // 2, box_size // 2
+            target_found = False
+
+            for dx in range(-1, 3):
+                for dy in range(-1, 3):
+                    x = center_x + dx
+                    y = center_y + dy
+                    pixel = hsv[y, x]
+                    if is_valorant_purple(pixel):
+                        target_found = True
+                        break
+                if target_found:
+                    break
+
+            if target_found:
+                perform_click()
+                move_mouse_relative(recoil_comp)
+                time.sleep(fire_delay)
+            else:
+                time.sleep(0.001)
+
+if __name__ == "__main__":
+    display_loading_sequence()
+    triggerbot_loop()
